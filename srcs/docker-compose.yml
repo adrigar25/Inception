@@ -1,0 +1,8 @@
+volumes:
+  wordpress_db_data:
+services:
+  mariadb:
+    build: ./requirements/mariadb
+    env_file: .env
+    volumes:
+      - wordpress_db_data:/var/lib/mysql
