@@ -1,0 +1,9 @@
+# Local environment and secrets
+srcs/.env
+secrets/*.txt
+
+# Common system/editor noise
+.DS_Store
+*.swp
+*.swo
+.vscode/
