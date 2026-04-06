@@ -1,5 +1,6 @@
 COMPOSE := cd srcs && docker compose
-DATA_DIR := /home/agarcia/data
+LOGIN := $(shell whoami)
+DATA_DIR := /home/$(LOGIN)/data
 
 .PHONY: all up down start stop logs ps clean fclean re
 
@@ -28,6 +29,6 @@ clean:
 	$(COMPOSE) down -v --remove-orphans
 
 fclean: clean
-	rm -rf $(DATA_DIR)/wp_data $(DATA_DIR)/db_data
+	docker run --rm -v $(DATA_DIR):/data debian:bullseye sh -c "rm -rf /data/wp_data /data/db_data"
 
 re: fclean up

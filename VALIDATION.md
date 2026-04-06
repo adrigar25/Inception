@@ -8,6 +8,9 @@ This document provides a comprehensive validation checklist for the Inception pr
 cd /home/agarcia/Inception
 make up
 # Wait 10 seconds for services to initialize
+
+# Domain access for browser tests (one-time)
+echo "127.0.0.1 agarcia.42.fr" | sudo tee -a /etc/hosts
 ```
 
 ## Validation Checklist (2022 Checklist)
@@ -148,7 +151,15 @@ make up
   - Verify: `docker compose exec mariadb mysql -uroot -p1234 -e "SELECT User FROM mysql.user WHERE User='agarcia';"`
 
 - ✅ **Root password protected**
-  - Verify: `docker compose exec mariadb mysqladmin -uroot ping >/dev/null 2>&1 && echo "Auth required"`
+  - Verify (must fail without password):
+    ```bash
+    docker compose exec -T mariadb mysql --no-defaults -uroot -e "SELECT 1;"
+    # Expected: ERROR 1045 (using password: NO)
+    ```
+  - Verify (must work with password):
+    ```bash
+    docker compose exec -T mariadb mysql --no-defaults -uroot -p1234 -e "SELECT 1;"
+    ```
 
 ### Secrets Management
 

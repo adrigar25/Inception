@@ -25,9 +25,13 @@ fi
 mkdir -p /run/mysqld /var/lib/mysql
 chown -R mysql:mysql /run/mysqld /var/lib/mysql
 
-if [ ! -d /var/lib/mysql/mysql ]; then
+INIT_MARKER="/var/lib/mysql/.inception_initialized"
+
+if [ ! -f "$INIT_MARKER" ]; then
 	echo "[MariaDB Init] First boot: initializing database..." >&2
-	mariadb-install-db --user=mysql --datadir=/var/lib/mysql
+	if [ ! -d /var/lib/mysql/mysql ]; then
+		mariadb-install-db --user=mysql --datadir=/var/lib/mysql
+	fi
 
 	echo "[MariaDB Init] Starting temporary MySQL instance for setup..." >&2
 	mysqld --user=mysql --skip-networking --socket=/run/mysqld/mysqld.sock --datadir=/var/lib/mysql &
@@ -43,7 +47,7 @@ if [ ! -d /var/lib/mysql/mysql ]; then
 
 	echo "[MariaDB Init] Setting up root password and database..." >&2
 	mysql --socket=/run/mysqld/mysqld.sock <<EOF
-ALTER USER 'root'@'localhost' IDENTIFIED BY '${DB_ROOT_PASSWORD}';
+ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('${DB_ROOT_PASSWORD}');
 CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\`;
 CREATE USER IF NOT EXISTS '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASSWORD}';
 GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'%';
@@ -55,6 +59,8 @@ EOF
 	echo "[MariaDB Init] Shutting down temporary instance..." >&2
 	kill $SETUP_PID 2>/dev/null || true
 	wait $SETUP_PID 2>/dev/null || true
+	touch "$INIT_MARKER"
+	chown mysql:mysql "$INIT_MARKER"
 	echo "[MariaDB Init] Temporary instance shut down" >&2
 fi
 
