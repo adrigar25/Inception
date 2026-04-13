@@ -1,9 +1,11 @@
 #!/bin/sh
 set -eu
 
+# Check required environment variables
 : "${DB_NAME:?DB_NAME is required}"
 : "${DB_USER:?DB_USER is required}"
 
+# Set default DB_HOST if not provided
 if [ -n "${DB_ROOT_PASSWORD_FILE:-}" ] && [ -f "$DB_ROOT_PASSWORD_FILE" ]; then
 	DB_ROOT_PASSWORD="$(cat "$DB_ROOT_PASSWORD_FILE")"
 elif [ -n "${DB_ROOT_PWD:-}" ]; then
@@ -13,6 +15,7 @@ else
 	exit 1
 fi
 
+# Get DB user password from file or environment variable
 if [ -n "${DB_PASSWORD_FILE:-}" ] && [ -f "$DB_PASSWORD_FILE" ]; then
 	DB_PASSWORD="$(cat "$DB_PASSWORD_FILE")"
 elif [ -n "${DB_PWD:-}" ]; then
@@ -22,21 +25,27 @@ else
 	exit 1
 fi
 
+# Initialize MariaDB data directory and set permissions
 mkdir -p /run/mysqld /var/lib/mysql
 chown -R mysql:mysql /run/mysqld /var/lib/mysql
 
+# Create a marker file to indicate initialization has been done
 INIT_MARKER="/var/lib/mysql/.inception_initialized"
 
+# Only initialize the database on the first run
 if [ ! -f "$INIT_MARKER" ]; then
+	# Initialize the database if the mysql system database is not present
 	echo "[MariaDB Init] First boot: initializing database..." >&2
 	if [ ! -d /var/lib/mysql/mysql ]; then
 		mariadb-install-db --user=mysql --datadir=/var/lib/mysql
 	fi
 
+	# Start a temporary MySQL instance to perform initial setup
 	echo "[MariaDB Init] Starting temporary MySQL instance for setup..." >&2
 	mysqld --user=mysql --skip-networking --socket=/run/mysqld/mysqld.sock --datadir=/var/lib/mysql &
 	SETUP_PID=$!
 
+	# Wait for the temporary MySQL instance to be ready
 	echo "[MariaDB Init] Waiting for MySQL to be ready..." >&2
 	for i in $(seq 1 30); do
 		if mysqladmin --socket=/run/mysqld/mysqld.sock ping --silent 2>/dev/null; then
@@ -45,6 +54,7 @@ if [ ! -f "$INIT_MARKER" ]; then
 		sleep 1
 	done
 
+	# Perform initial database setup: set root password, create database and user
 	echo "[MariaDB Init] Setting up root password and database..." >&2
 	mysql --socket=/run/mysqld/mysqld.sock <<EOF
 ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('${DB_ROOT_PASSWORD}');
